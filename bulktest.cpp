@@ -168,11 +168,11 @@ std::vector<std::string> find_csv_files_as_strings(const fs::path& directory_pat
     std::vector<std::string> csv_file_names;
 
     try {
-        // Use directory_iterator to walk the directory
+
         for (const auto& entry : fs::directory_iterator(directory_path)) {
-            // Check if the item is a regular file and has a .csv extension
+
             if (fs::is_regular_file(entry) && entry.path().extension() == ".csv") {
-                // Convert the fs::path to a std::string and add it to the vector
+
                 csv_file_names.push_back(entry.path().string());
             }
         }
@@ -188,14 +188,9 @@ std::vector<std::string> find_csv_files_as_strings(const fs::path& directory_pat
 
 
 int main(int argc, char** argv) {
-
-    // Get the current working directory as the target
     fs::path current_path = fs::current_path();
-
-    // Call the function to get the vector of file names as strings
     std::vector<std::string> files_found = find_csv_files_as_strings(current_path);
 
-    // Use the resulting vector in the main function
     if (files_found.empty()) {
         std::cout << "No .csv files found in the current directory." << std::endl;
     } else {
@@ -206,23 +201,15 @@ int main(int argc, char** argv) {
     }
 
     for (size_t i = 0; i < files_found.size(); ++i) {
-        // Convert the input string filename to a filesystem::path object
         fs::path input_path = files_found[i];
 
-        // Construct the output filename
         fs::path output_path = input_path.parent_path() /
                                (input_path.stem().string() + "_output" + input_path.extension().string());
-        
-        // Read the input file
+                               
         table tbl = read_csv(input_path.string());
-        
-        // Perform the calculation
         table u = mutationpp_calc(tbl);
-        
-        // Write the result to the newly constructed output file
         write_csv(output_path.string(), u, 20);
     }
-    
     return 0;
 }
 
