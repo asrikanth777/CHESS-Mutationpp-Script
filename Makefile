@@ -18,9 +18,9 @@ ifeq ($(UNAME_S),Darwin)
 	CXX_LIBS = $(MUTATIONPP_INSTALL)/lib/libmutation++.dylib
 endif
 
-all : bulktest
+all : thermal
 
-bulktest : bulktest.o
+thermal : thermal.o
 	$(CXX) -o $@ $(CXX_FLAGS) $^ $(CXX_LIBS)
 
 %.o : %.cpp
