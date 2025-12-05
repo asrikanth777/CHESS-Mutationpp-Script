@@ -4,17 +4,16 @@
 #include <sstream>
 #include <string>
 #include <vector>
-// #include <cmath>                   	these were imported at the start 
-// #include <unordered_map>				when writing this program, but are not 
-// #include <utility>					currently used. though this would a good spot
-//										to use unordered_map... (should have thought of that earlier)
+// #include <cmath>                   
+// #include <unordered_map>				
+// #include <utility>					
 #include <stdexcept>
 #include <iomanip>
 #include <filesystem>
 
 
 // creates a table by a vector of vectors, first value is a string
-// for headers like x_O or lambda
+// for headers like x_O or lambda, the vector stores numeric values
 using columns = std::pair<std::string, std::vector<double>>;
 using table = std::vector<columns>;
 
@@ -87,7 +86,6 @@ table read_csv(std::string filename) {
 }
 
 // function to loop through columns to find header matching name in function parameter
-// (as mentioned earlier, unordered_map is better and this is a little barbaric but it works :D)
 static int index_of(const table& t, const std::string& name){
 	for (size_t i = 0; i < t.size(); ++i) 
 		if (t[i].first == name)
@@ -97,11 +95,9 @@ static int index_of(const table& t, const std::string& name){
 
 
 
-// where the fun stuff happens
-// it takes corresponding temperature and pressure columns, and loops through the "rows"
-// then using the values at each row, it calculates entropy generation and mole fractions of flow species
-// using the mutationpp library from vonKarmen institute
-table mutationpp_calc(const table& in) {
+
+// calculates mole fractions of flow species with T and P using mutation++
+void mole_fraction(table& in) {
 	using namespace Mutation;
 	using namespace Mutation::Thermodynamics;
 
@@ -114,16 +110,14 @@ table mutationpp_calc(const table& in) {
 	const auto& P = in[(size_t)iP].second;
 	if (T.size() != P.size()) throw std::runtime_error("temp and press column lengths differ");
 
-	// sets up S vector for entropy generation
-	std::vector<double> S;
-	S.reserve(T.size());
+	const size_t N = T.size();
 
 	// sets up Xvals table to track mole fractions
 	std::vector<std::vector<double>> Xvals(mix.nSpecies());
-	for (auto& v: Xvals) v.reserve(T.size());
+	for (auto& v: Xvals) v.reserve(N);
 
 	// loops through and does the calc
-	for (size_t i = 0; i < T.size(); ++i) {
+	for (size_t i = 0; i < N; ++i) {
 		double Ti = T[i];
 		double Pi = P[i];
 
@@ -132,37 +126,60 @@ table mutationpp_calc(const table& in) {
 
 		// calculates entropy and mole fractions and puts them in
 		// their respective columns
-		S.push_back(mix.mixtureSMass());
 		const double* X = mix.X();
 		for (int j = 0; j < mix.nSpecies(); ++j)
 			Xvals[j].push_back(X[j]);
 
 	}
 
-	// makes a copy of this table to prepare for appending new values
-	table out = in;
-	// this now appends the columns made in the function (S & X_)
-	out.emplace_back(columns{"S", std::move(S)});
+	// overwrites table with new mole fraction calculations
 	for (int j = 0; j < mix.nSpecies(); ++j) {
 		std::string col_name = "X_" + mix.speciesName(j);
-		out.emplace_back(columns{col_name, std::move(Xvals[j])});
+		in.emplace_back(columns{col_name, std::move(Xvals[j])});
 	}
 
 	// returns table
-	return out; 
 
 }
 
-// does basically the same thing as previous function, but just for thermal conductivity
-// yes it could be seen as questionable to make a separate function instead of adding it back in
-// since it would use more memory to make ANOTHER table
-// but the intention is modularity, you can comment out functions u are not interested in and proceed with the script
-// its not a problem now, but with further functions added, an effort to make it more efficient would be advised
-table thermal(const table& in) {
-
-	// same namespaces as before but using the transport.h header now
+void entropy(table& in) {
 	using namespace Mutation;
 	using namespace Mutation::Thermodynamics;
+
+	// gets index of temperature and pressure columns
+	// checks if they are empty or mismatched size (bad)
+	const int iT = index_of(in, "T");
+	const int iP = index_of(in, "p");
+	if (iT < 0 || iP < 0) throw std::runtime_error("Missing columns temp or press");
+	const auto& T = in[(size_t)iT].second;
+	const auto& P = in[(size_t)iP].second;
+	if (T.size() != P.size()) throw std::runtime_error("temp and press column lengths differ");
+
+	const size_t N = T.size();
+	// sets up S vector for entropy generation
+	std::vector<double> S;
+	S.reserve(N);
+
+	// loops through and does the calc
+	for (size_t i = 0; i < N; ++i) {
+		double Ti = T[i];
+		double Pi = P[i];
+
+		mix.setState(&Ti, &Pi);
+		S.push_back(mix.mixtureSMass());
+
+	}
+
+	// appends table with new entropy column
+	in.emplace_back(columns{"S", std::move(S)});
+
+}
+
+// This function takes temp and pressure and finds thermal conductivity
+void thermal(table& in) {
+	using namespace Mutation;
+	using namespace Mutation::Thermodynamics;
+	// same namespaces as before but using the transport.h header now
 	using namespace Mutation::Transport;
 
 	// leave the code below, maybe add to it if needing other values like velocity and stuff
@@ -173,14 +190,13 @@ table thermal(const table& in) {
 	const auto& P = in[(size_t)iP].second;
 	if (T.size() != P.size()) throw std::runtime_error("temp and press column lengths differ");
 
-
+	const size_t N = T.size();
 	// sets up lambda table to store conductivity
-	// rinse and repeat of the above function
 	std::vector<double> lambda;
-	lambda.reserve(T.size());
+	lambda.reserve(N);
 
-
-	for (size_t i = 0; i < T.size(); ++i) {
+	// calculates lambda and appends vector
+	for (size_t i = 0; i < N; ++i) {
 		double Ti = T[i];
 		double Pi = P[i];
 		mix.setState(&Ti, &Pi);
@@ -189,16 +205,15 @@ table thermal(const table& in) {
 	}
 
 
-	table out = in;
-	out.emplace_back(columns{"lambda", std::move(lambda)});
+	// appends table with new vector
+	in.emplace_back(columns{"lambda", std::move(lambda)});
 
-	return out; 
 
 }
 
 
 // this makes sure that when making  csv, it doesn't keep quotations unnecessarily while not 
-// letting escape characters through
+// letting escape characters through to make headers 
 static std::string csv_insurance(const std::string& str) {
 	bool needs_quote = false;
 	for (char c: str) {
@@ -219,9 +234,8 @@ static std::string csv_insurance(const std::string& str) {
 
 // this function writes to the csv and makes sure its a complete rectangular grid
 void write_csv(const std::string& path, const table& t, int precision = 10) {
-	// ensures table is not empty
+	// ensures table is not empty and columns are same size
 	if (t.empty()) throw std::runtime_error("write_csv: empty table");
-	// makes sure columns are same size and didn't miss any calculations
 	const std::size_t nrows = t.front().second.size();
 	for (const auto& col: t) {
 		if (col.second.size() != nrows) {
@@ -240,8 +254,6 @@ void write_csv(const std::string& path, const table& t, int precision = 10) {
 	f << '\n';
 
 	// fixes precision of values instead of scientific notation
-	// 10 might be too much or too little
-	// but one can never be too careful
 	f << std::setprecision(precision) << std::fixed;
 
 	for (std::size_t i = 0; i < nrows; ++i){
@@ -254,13 +266,11 @@ void write_csv(const std::string& path, const table& t, int precision = 10) {
 }
 
 // this finds all the csv's in the same directory as script, and makes a list
-// sames the effort of having to rewrite the script each time to do a csv file
 std::vector<std::string> find_csv_files_as_strings(const std::filesystem::path& directory_path) {
 	namespace fs = std::filesystem;
     std::vector<std::string> csv_file_names;
 
-	// again checks to see if there are any csv files in directory
-	// if there are, it goes to the csv file name vector
+	// checks to see if there are any csv files in directory and appends filename vector accordingly
     try {
 
         for (const auto& entry : fs::directory_iterator(directory_path)) {
@@ -309,21 +319,27 @@ int main() {
         fs::path output_path = input_path.parent_path() /
                                (input_path.stem().string() + "_output" + input_path.extension().string());
                                
-		// does all the functions and returns back
+		// Reads CSV, DO NOT COMMENT OUT
         table tbl = read_csv(input_path.string());
-        table u = mutationpp_calc(tbl);
-        table therm = thermal(u);
-        write_csv(output_path.string(), therm, 15);
+
+
+		// Mutation++ calculations, comment out whatever you dont need
+        mole_fraction(tbl);
+		entropy(tbl);
+        thermal(tbl);
+
+
+		// Outputs table to csv, DO NOT COMMENT OUT
+        write_csv(output_path.string(), tbl, 15);
     }
     return 0;
 }
 // thats the end so far
-// room for improvements
 
+// room for improvements
+// -----------------------------------------------------------------------------------------------------------
 // + making it cache the csvs in a separate folder instead of populating current folder
 //	- this is because if u run the script without clearing the old ones, it also takes the outputcsvs again 
 // 	  and does the computation
 
-// + using a map instead of vectors on vectors, speed may be an issue later on
-// + maybe efficiently editing the original table instead of making new ones each time? this will take a bit for me but
-// + this is not inhibiting factor rn
+
