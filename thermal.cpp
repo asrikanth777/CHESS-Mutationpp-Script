@@ -324,9 +324,9 @@ int main() {
 
 
 		// Mutation++ calculations, comment out whatever you dont need
-        mole_fraction(tbl);
-		entropy(tbl);
-        thermal(tbl);
+	mole_fraction(tbl);
+	// entropy(tbl);
+    	thermal(tbl);
 
 
 		// Outputs table to csv, DO NOT COMMENT OUT
