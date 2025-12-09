@@ -110,6 +110,7 @@ while j < vlength:
 # this goes into output specified where the cppscript should be
 os.chdir(output)
 os.system('make')
+os.system('chmod +x thermal')
 os.system('./thermal')
 os.chdir('..')
 
