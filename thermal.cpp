@@ -294,46 +294,52 @@ std::vector<std::string> find_csv_files_as_strings(const std::filesystem::path& 
 
 
 int main() {
-	namespace fs = std::filesystem;
+    namespace fs = std::filesystem;
 
-	// takes current path of script within the computer
+    // take current path of where the binary is being run
     fs::path current_path = fs::current_path();
-	// finds csv strings
-    std::vector<std::string> files_found = find_csv_files_as_strings(current_path);
 
-	// makes sure there are csv files to go through
+    // explicitly define input and output directories under the repo
+    fs::path input_dir  = current_path / "input";
+    fs::path output_dir = current_path / "output";
+
+    // finds csv strings in the input directory
+    std::vector<std::string> files_found = find_csv_files_as_strings(input_dir);
+
+    // makes sure there are csv files to go through
     if (files_found.empty()) {
-        std::cout << "No .csv files found in the current directory." << std::endl;
+        std::cout << "No .csv files found in input directory: " << input_dir << std::endl;
     } else {
-        std::cout << "Found .csv files:" << std::endl;
-		// shows what files are now being worked with
+        std::cout << "Found .csv files in " << input_dir << ":" << std::endl;
+        // shows what files are now being worked with
         for (const auto& file_path : files_found) {
             std::cout << "  - " << file_path << std::endl;
         }
     }
 
-	// this part sets it up to add _output to differentiate from original csvs
+    // this part sets it up to add _output to differentiate from original csvs
     for (size_t i = 0; i < files_found.size(); ++i) {
         fs::path input_path = files_found[i];
 
-        fs::path output_path = input_path.parent_path() /
-                               (input_path.stem().string() + "_output" + input_path.extension().string());
-                               
-		// Reads CSV, DO NOT COMMENT OUT
+        // put outputs into the output/ directory, not next to the inputs
+        fs::path output_path = output_dir /
+            (input_path.stem().string() + "_output" + input_path.extension().string());
+
+        // Reads CSV, DO NOT COMMENT OUT
         table tbl = read_csv(input_path.string());
 
+        // Mutation++ calculations, comment out whatever you dont need
+        mole_fraction(tbl);
+        // entropy(tbl);
+        thermal(tbl);
 
-		// Mutation++ calculations, comment out whatever you dont need
-	mole_fraction(tbl);
-	// entropy(tbl);
-    	thermal(tbl);
-
-
-		// Outputs table to csv, DO NOT COMMENT OUT
+        // Outputs table to csv, DO NOT COMMENT OUT
         write_csv(output_path.string(), tbl, 15);
     }
+
     return 0;
 }
+
 // thats the end so far
 
 // room for improvements

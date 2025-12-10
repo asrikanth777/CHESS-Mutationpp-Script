@@ -42,9 +42,14 @@ print(str(base))
 name = input("name for folder with pvts and vts")
 folder = base / name
 print(folder)
-name2 = input("name for folder to export csvs")
-output = base / name2
-print(output)
+name2 = "CHESS-Mutationpp-Script"
+script = base / name2
+print(script)
+
+input_dir = script / "input"
+output_dir = script / "output"
+
+
 
 
 # collects all pvts and vts files 
@@ -93,7 +98,7 @@ while i < plength:
 	cellDatatoPointDataSheet = Show(cellDatatoPointDataPVTS, spreadSheetView1)
     # shows them so they are properly read to be exported out
     # skipping this step will only give coordinate info, not the values in the cells
-	ExportView(str(output) +'/' + pvts_stem1[i] + '.csv', view=spreadSheetView1)
+	ExportView(str(input_dir) +'/' + pvts_stem1[i] + '.csv', view=spreadSheetView1)
 	i+= 1
 
 
@@ -104,11 +109,11 @@ while j < vlength:
 	cellDatatoPointDataSheet = Show(cellDatatoPointDataVTS, spreadSheetView1)
     # shows them so they are properly read to be exported out
     # skipping this step will only give coordinate info, not the values in the cells
-	ExportView(str(output) +'/' + vts_stem1[j] + '.csv', view=spreadSheetView1)
+	ExportView(str(input_dir) +'/' + vts_stem1[j] + '.csv', view=spreadSheetView1)
 	j+= 1
 
 # this goes into output specified where the cppscript should be
-os.chdir(output)
+os.chdir(script)
 os.system('make')
 os.system('chmod +x thermal')
 os.system('./thermal')
@@ -120,7 +125,7 @@ paraview.simple._DisableFirstRenderCameraReset()
 
 
 # grabs csvs with only the word output
-csv_files = sorted(output.glob("*.csv"))
+csv_files = sorted(output_dir.glob("*.csv"))
 key_ident = "output"
 csv_stems = [cs.stem for cs in csv_files]
 
