@@ -1,1 +1,2 @@
-*.csv
+/output/*.csv
+/input/*.csv
